@@ -34,7 +34,11 @@ export default function Home() {
           <p className={styles.scenarioDescription}>{scenario.desc}</p>
           <div className={styles.optionsContainer}>
             {scenario.options.map((option) => (
-              <button key={option.id} className={styles.decisionButton}>
+              <button
+                key={option.id}
+                className={styles.decisionButton}
+                onClick={getFirstDesc}
+              >
                 {option.label}
               </button>
             ))}

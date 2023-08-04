@@ -1,8 +1,12 @@
 import { Scenario } from '@/interfaces';
+import { sessionOptions } from '@/lib/session';
 import { randomUUID } from 'crypto';
-import { NextApiHandler, NextApiResponse } from 'next';
+import { withIronSessionApiRoute } from 'iron-session/next';
+import { NextApiHandler, NextApiRequest, NextApiResponse } from 'next';
 import { Configuration, OpenAIApi } from 'openai';
+import { User } from './user';
 import { handleAxiosError } from './utils/errors';
+import { saveUserScenarios } from './utils/storage';
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
@@ -26,8 +30,8 @@ function generatePrompt() {
   no matter what choice the user chooses, so create an exciting short story.`;
 }
 
-export const handler: NextApiHandler = async (
-  req,
+const handler: NextApiHandler = async (
+  req: NextApiRequest,
   res: NextApiResponse<Scenario | { error: { message: string } }>,
 ) => {
   if (!configuration.apiKey) {
@@ -40,14 +44,40 @@ export const handler: NextApiHandler = async (
     return;
   }
 
+  const userId = req.session.user?.id; // Access the session ID
+  
+  if (!userId) {
+    const user: User = { isLoggedIn: true, id: randomUUID() };
+    req.session.user = user;
+    await req.session.save();
+  }
+
   let response;
 
   try {
-    response = await openai.createChatCompletion({
-      model: 'gpt-3.5-turbo',
-      messages: [{ role: 'system', content: generatePrompt() }],
-      temperature: 0.6,
-    });
+    // response = await openai.createChatCompletion({
+    //   model: 'gpt-3.5-turbo',
+    //   messages: [{ role: 'system', content: generatePrompt() }],
+    //   temperature: 0.6,
+    // });
+    response = {
+      data: {
+        choices: [
+          {
+            message: {
+              content: `{
+                  "desc": "You are Liam, a young adventurer living in the kingdom of Eldoria. One day, while exploring the ancient forests, you stumble upon a hidden cave entrance. Curiosity takes hold of you, and you decide to venture inside. As you step into the darkness, you hear a faint whisper coming from the depths of the cave.",
+                  "options": [
+                    {"id": "option1", "label": "Follow the whisper"},
+                    {"id": "option2", "label": "Light a torch and proceed cautiously"},
+                    {"id": "option3", "label": "Leave the cave and continue exploring the forest"}
+                  ]
+                }`,
+            },
+          },
+        ],
+      },
+    };
   } catch (error: any) {
     handleAxiosError(error);
     return;
@@ -67,7 +97,8 @@ export const handler: NextApiHandler = async (
     id: randomUUID(),
   }));
 
+  saveUserScenarios(req.session.user?.id as string, scenario);
   res.status(200).send(scenario);
 };
 
-export default handler;
+export default withIronSessionApiRoute(handler, sessionOptions);
