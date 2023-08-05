@@ -102,7 +102,7 @@ const handler: NextApiHandler = async (
         response = await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
           messages,
-          temperature: 0.6,
+          temperature: 0.9,
         });
       } catch (error: any) {
         handleAxiosError(error);
@@ -136,7 +136,7 @@ const handler: NextApiHandler = async (
         response = await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
           messages: [firstRoundMessage],
-          temperature: 0.6,
+          temperature: 0.9,
         });
       } catch (error: any) {
         handleAxiosError(error);
@@ -172,7 +172,7 @@ const handler: NextApiHandler = async (
         response = await openai.createChatCompletion({
           model: 'gpt-3.5-turbo',
           messages,
-          temperature: 0.6,
+          temperature: 0.9,
         });
       } catch (error: any) {
         handleAxiosError(error);
