@@ -1,3 +1,5 @@
+import { ChatCompletionRequestMessage } from 'openai';
+
 export interface Scenario {
   desc: string;
   options: ScenarioOption[];
@@ -9,6 +11,6 @@ export interface ScenarioOption {
   label: string;
 }
 
-export interface UserScenarios {
-  [userId: string]: Scenario[];
+export interface UserMessages {
+  [userId: string]: ChatCompletionRequestMessage[];
 }

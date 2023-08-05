@@ -7,11 +7,17 @@ export default function Home() {
   const [inGame, setInGame] = useState(false);
   const [scenario, setScenario] = useState<Scenario>({ desc: '', options: [] });
 
-  const getFirstDesc = async () => {
-    const resJSON = await fetch('/api/firstScenario');
+  const generateScenario = async (optionChosen?: string) => {
+    const body = optionChosen ? { optionChosen } : {};
+    const resJSON = await fetch('/api/generateScenario', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(body),
+    });
     const res = await resJSON.json();
-
-    console.log(res);
     setScenario(res);
   };
 
@@ -22,7 +28,7 @@ export default function Home() {
           className={styles.startGameButton}
           onClick={() => {
             setInGame(true);
-            getFirstDesc();
+            generateScenario();
           }}
         >
           LET THE ADVENTURE BEGIN!
@@ -37,7 +43,7 @@ export default function Home() {
               <button
                 key={option.id}
                 className={styles.decisionButton}
-                onClick={getFirstDesc}
+                onClick={() => generateScenario(option.id)}
               >
                 {option.label}
               </button>
