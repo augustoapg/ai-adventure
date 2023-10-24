@@ -7,12 +7,63 @@
   min-height: 100vh;
 }
 
-.startGameButton {
-  
+.scenarioDescription {
+  margin-bottom: 1em;
 }
 
 .optionsContainer {
   display: flex;
   flex-direction: column;
-  gap: 5px;
+  gap: 10px;
+}
+
+.optionsContainer button {
+  padding: 0.3em;
+}
+
+.optionChosenBtn {
+  border: 1px solid orange;
+}
+
+.preGameContainer {
+  display: flex;
+  align-items: center;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.themes,
+.languages {
+  display: flex;
+  list-style: none;
+  padding: 0;
+}
+
+.themes li,
+.languages li {
+  display: flex;
+  align-items: center;
+  margin: 0 10px;
+  cursor: pointer;
+  transition: all 0.8s ease;
+}
+
+.nameInput {
+  border: none;
+  border-bottom: 2px solid #ffa500;
+  width: 100%;
+  padding: 0.7em;
+  font-size: 1.5em;
+  text-align: center;
+  background-color: rgb(0,0,0);
+  transition: all 1s ease;
+}
+
+.nameInput:focus-visible {
+  outline: none;
+  background-color: rgb(30, 30 , 30);
+}
+
+.startGameButton {
+  padding: 1em;
 }

@@ -11,31 +11,64 @@ import {
 } from 'openai';
 import { User } from './user';
 import { handleAxiosError } from './utils/errors';
-import { getUserMessages, saveUserMessages } from './utils/storage';
+import {
+  clearUserMessages,
+  getUserMessages,
+  saveUserMessages,
+} from './utils/storage';
 
 const MAX_NUMBER_OF_SCENARIOS = 10;
+const MAX_WORDS_PER_DESC = 100;
+
+const KEY_ERROR = {
+  error: {
+    message:
+      'OpenAI API key not configured, please follow instructions in README.md',
+  },
+};
 
 const configuration = new Configuration({
   apiKey: process.env.OPENAI_API_KEY,
 });
 
-const openai = new OpenAIApi(configuration);
+/**
+ * Creates user session with id if new user. Also returns boolean
+ * to say if user is new or not.
+ * @param req NextApiRequest
+ * @returns true if user is new or false if not
+ */
+const handleNewUser = async (req: NextApiRequest) => {
+  const isNewUser = req.session.user?.id === undefined;
 
-const generateFirstRoundMessage = (): ChatCompletionRequestMessage => {
-  const content = `I'm having someone play a choose your own adventure game. 
-  You will be the one providing me with the story bits, which I am calling scenarios. 
-  Each scenario description is not to have more than 100 words and you shall give
-  be the description of the scenario followed by 3 options in JSON format:
-
-  {
-    "desc": "<DESCRIPTION OF THE SCENARIO>",
-    "options": [{"id": "opt1", "label": "<option 1>"}, {"id": "opt2", "label": "<option 2>"}, {"id": "opt3", "label": "<option 3>"}]
+  if (isNewUser) {
+    const user: User = { isLoggedIn: true, id: randomUUID() };
+    req.session.user = user;
+    await req.session.save();
   }
 
-  This is the first round, so give me the beginning of a short story with 3 options, set in
-  a fantasy world where the main character's name is Liam. The whole short story will end in ${MAX_NUMBER_OF_SCENARIOS} rounds
-  no matter what choice the user chooses, so create an exciting short story. For the next requests I will just tell you the option chosen
-  and you will give me the same format with the continuation of the story.`;
+  return isNewUser;
+};
+
+const openai = new OpenAIApi(configuration);
+
+const generateFirstRoundMessage = (
+  theme: string, name: string, language: string
+): ChatCompletionRequestMessage => {
+  let content = `I'm having someone play a choose your own adventure game. 
+  You will be the one providing me with the scenarios. 
+  The desc of the scenario should not have more than ${MAX_WORDS_PER_DESC} words 
+  and you shall also give 3 options. Your response has to be in this JSON format:
+  {
+    "desc": "<DESCRIPTION OF THE SCENARIO>",
+    "options": [{"id": "opt1", "label": "<option 1>"}, ...]
+  }
+
+  Now give me the beginning of a short story with 3 options (in the above format), with the theme of ${theme} where the main character's name is ${name}.
+  The whole story will end in ${MAX_NUMBER_OF_SCENARIOS} rounds, so create an exciting short story.`;
+
+  if (language !== "English") {
+    content += `. Please generate every response in ${language}`
+  }
 
   return { role: 'system', content };
 };
@@ -44,7 +77,9 @@ const generateNextRoundMessage = (
   optionChosen: string,
   roundNumber: number,
 ): ChatCompletionRequestMessage => {
-  const content = `The user chose ${optionChosen}. Give me the next round (which is the number ${roundNumber} out of ${MAX_NUMBER_OF_SCENARIOS}). Follow same response structure as last time.`;
+  const content = `The user chose ${optionChosen}. 
+  Give me the next round (which is the number ${roundNumber} out of ${MAX_NUMBER_OF_SCENARIOS}). 
+  Follow same response structure as last time.`;
 
   return { role: 'system', content };
 };
@@ -52,7 +87,9 @@ const generateNextRoundMessage = (
 const generateLastRoundMessage = (
   optionChosen: string,
 ): ChatCompletionRequestMessage => {
-  const content = `The user chose ${optionChosen}. Give me a conclusion for this story. Follow same response structure as last time but the "options" part of the response should be just an empty array.`;
+  const content = `The user chose ${optionChosen}. 
+  Give me a conclusion for this story. Follow same response structure 
+  as last time but the "options" part of the response should be just an empty array.`;
 
   return { role: 'system', content };
 };
@@ -62,141 +99,77 @@ const handler: NextApiHandler = async (
   res: NextApiResponse<Scenario | { error: { message: string } }>,
 ) => {
   if (req.method === 'POST') {
+    const theme = req.body.theme || "Fantasy";
+    const name = req.body.name || "Liam";
+    const language = req.body.language || "english";
+
+    console.log(req.body);
     if (!configuration.apiKey) {
-      res.status(500).json({
-        error: {
-          message:
-            'OpenAI API key not configured, please follow instructions in README.md',
-        },
-      });
+      res.status(500).json(KEY_ERROR);
       return;
     }
+    let response;
+    let newSystemMessage: ChatCompletionRequestMessage;
+    let isLastRound = false;
 
-    const isNewUser = req.session.user?.id === undefined;
-
-    if (isNewUser) {
-      const user: User = { isLoggedIn: true, id: randomUUID() };
-      req.session.user = user;
-      await req.session.save();
-    }
+    handleNewUser(req);
 
     const userId = (req.session.user as User).id;
     let previousMessages = getUserMessages(userId);
+
     const roundNumber =
       previousMessages.filter((msg) => msg.role === 'assistant').length + 1;
 
-    let response;
+    // first prompt
+    if (previousMessages.length === 0 || req.body.optionChosen === undefined) {
+      newSystemMessage = generateFirstRoundMessage(theme, name, language);
+    }
 
-    if (
-      previousMessages.length > 0 &&
-      roundNumber < MAX_NUMBER_OF_SCENARIOS &&
-      req.body.optionChosen
-    ) {
-      const newSystemMessage = generateNextRoundMessage(
+    // mid game rounds
+    else if (roundNumber < MAX_NUMBER_OF_SCENARIOS && req.body.optionChosen) {
+      newSystemMessage = generateNextRoundMessage(
         req.body.optionChosen,
         roundNumber,
       );
-      const messages = [...previousMessages, newSystemMessage];
-
-      try {
-        response = await openai.createChatCompletion({
-          model: 'gpt-3.5-turbo',
-          messages,
-          temperature: 0.9,
-        });
-      } catch (error: any) {
-        handleAxiosError(error);
-        return;
-      }
-
-      const newAssistantMessage = response.data.choices[0]
-        .message as ChatCompletionResponseMessage;
-
-      const scenarioJSON = newAssistantMessage.content;
-
-      if (!scenarioJSON) {
-        return res
-          .status(500)
-          .json({ error: { message: 'scenario not generated' } });
-      }
-
-      const scenario: Scenario = JSON.parse(scenarioJSON);
-
-      saveUserMessages(req.session.user?.id as string, [
-        ...messages,
-        newAssistantMessage,
-      ]);
-      res.status(200).send(scenario);
-    }
-
-    // first prompt
-    else if (previousMessages.length === 0) {
-      const firstRoundMessage = generateFirstRoundMessage();
-      try {
-        response = await openai.createChatCompletion({
-          model: 'gpt-3.5-turbo',
-          messages: [firstRoundMessage],
-          temperature: 0.9,
-        });
-      } catch (error: any) {
-        handleAxiosError(error);
-        return;
-      }
-
-      const newAssistantMessage = response.data.choices[0]
-        .message as ChatCompletionResponseMessage;
-
-      const scenarioJSON = newAssistantMessage.content;
-
-      if (!scenarioJSON) {
-        return res
-          .status(500)
-          .json({ error: { message: 'scenario not generated' } });
-      }
-
-      const scenario: Scenario = JSON.parse(scenarioJSON);
-
-      saveUserMessages(req.session.user?.id as string, [
-        firstRoundMessage,
-        newAssistantMessage,
-      ]);
-      res.status(200).send(scenario);
     }
 
     // last round
     else {
-      const newSystemMessage = generateLastRoundMessage(req.body.optionChosen);
-      const messages = [...previousMessages, newSystemMessage];
+      newSystemMessage = generateLastRoundMessage(req.body.optionChosen);
+      isLastRound = true;
+    }
 
-      try {
-        response = await openai.createChatCompletion({
-          model: 'gpt-3.5-turbo',
-          messages,
-          temperature: 0.9,
-        });
-      } catch (error: any) {
-        handleAxiosError(error);
-        return;
-      }
+    const messages = [...previousMessages, newSystemMessage];
 
-      const newAssistantMessage = response.data.choices[0]
-        .message as ChatCompletionResponseMessage;
+    try {
+      response = await openai.createChatCompletion({
+        model: 'gpt-3.5-turbo',
+        messages,
+        temperature: 0.9,
+      });
+    } catch (error: any) {
+      handleAxiosError(error);
+      return;
+    }
 
-      const scenarioJSON = newAssistantMessage.content;
+    const newAssistantMessage = response.data.choices[0]
+      .message as ChatCompletionResponseMessage;
 
-      if (!scenarioJSON) {
-        return res
-          .status(500)
-          .json({ error: { message: 'scenario not generated' } });
-      }
+    const scenarioJSON = newAssistantMessage.content;
 
-      const scenario: Scenario = JSON.parse(scenarioJSON);
+    if (!scenarioJSON) {
+      return res
+        .status(500)
+        .json({ error: { message: 'scenario not generated' } });
+    }
 
-      saveUserMessages(req.session.user?.id as string, [
-        ...messages,
-        newSystemMessage,
-      ]);
-      res.status(200).send(scenario);
+    const scenario: Scenario = JSON.parse(scenarioJSON);
+
+    saveUserMessages(userId, [newSystemMessage, newAssistantMessage]);
+    res.status(200).send(scenario);
+
+    if (isLastRound) {
+      clearUserMessages(userId);
     }
   }
 };
