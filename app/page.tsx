@@ -5,6 +5,7 @@ import clsx from 'clsx';
 import { useState } from 'react';
 import styles from './page.module.css';
 import Image from 'next/image';
+import RightArrow from '../public/right-arrow.svg';
 
 export default function Home() {
   const [name, setName] = useState('');
@@ -13,6 +14,7 @@ export default function Home() {
   const [inGame, setInGame] = useState(false);
   const [scenario, setScenario] = useState<Scenario>({ desc: '', options: [] });
   const [optionChosen, setOptionChosen] = useState('');
+  const [customOption, setCustomOption] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
   const resetGame = () => {
@@ -117,6 +119,22 @@ export default function Home() {
       {inGame && (
         <div className={styles.gameContainer}>
           <p className={styles.scenarioDescription}>{scenario.desc}</p>
+          <div className={styles.customOptionContainer}>
+            <p>What do you do?</p>
+            <div className={styles.customOptionInputContainer}>
+              <input
+                className={styles.customOptionInput}
+                type="text"
+                value={customOption}
+                onChange={(e) => setCustomOption(e.target.value)}
+              />
+              <RightArrow
+                className={styles.customOptionSubmit}
+                onClick={() => console.log(customOption)}
+              />
+            </div>
+          </div>
+          <p>Or pick one of these options:</p>
           <div className={styles.optionsContainer}>
             {scenario.options.map((option) => (
               <button
@@ -133,10 +151,7 @@ export default function Home() {
       )}
 
       {inGame && scenario.desc && scenario.options.length === 0 && (
-        <button
-          className={styles.playAgainBtn}
-          onClick={resetGame}
-        >
+        <button className={styles.playAgainBtn} onClick={resetGame}>
           Play again?
         </button>
       )}

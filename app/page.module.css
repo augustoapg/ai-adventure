@@ -22,7 +22,7 @@
 }
 
 .optionChosenBtn {
-  border: 1px solid orange;
+  border: 1px solid var(--default-border-color);
 }
 
 .preGameContainer {
@@ -50,7 +50,7 @@
 
 .nameInput {
   border: none;
-  border-bottom: 2px solid #ffa500;
+  border-bottom: 2px solid var(--default-border-color);
   width: 100%;
   padding: 0.7em;
   font-size: 1.5em;
@@ -66,4 +66,45 @@
 
 .startGameButton {
   padding: 1em;
+}
+
+.gameContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 25px;
+}
+
+.customOptionContainer {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.customOptionInputContainer {
+  display: flex;
+  width: 100%;
+  align-items: center;
+}
+
+.customOptionInput {
+  border: none;
+  border-bottom: 2px solid var(--default-border-color);
+  padding: 0.7em;
+  font-size: 1.2em;
+  text-align: center;
+  background-color: rgb(0,0,0);
+  transition: all 1s ease;
+  outline: none;
+  flex-grow: 10;
+}
+
+.customOptionSubmit {
+  height: 30px;
+  fill: var(--default-border-color);
+  transition: fill 0.3s ease;
+}
+
+.customOptionSubmit:active {
+  fill: #c68102;
 }
