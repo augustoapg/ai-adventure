@@ -56,6 +56,33 @@ export default function Home() {
     });
   };
 
+  const submitCustomOption = async () => {
+    if (customOption && customOption.trim() !== '') {
+      setIsLoading(true);
+      const body = {
+        name: name || 'Liam',
+        language,
+        theme: theme.name,
+        customOption,
+      };
+
+      const resJSON = await fetch('/api/generateScenario', {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(body),
+      });
+      const res = await resJSON.json();
+      setScenario(res);
+      setIsLoading(false);
+      setOptionChosen('');
+      setCustomOption('');
+      console.log(theme, language, name);
+    }
+  };
+
   return (
     <main className={styles.main}>
       {!inGame && (
@@ -116,7 +143,7 @@ export default function Home() {
         </div>
       )}
 
-      {inGame && (
+      {inGame && scenario.desc && (
         <div className={styles.gameContainer}>
           <p className={styles.scenarioDescription}>{scenario.desc}</p>
           <div className={styles.customOptionContainer}>
@@ -130,7 +157,8 @@ export default function Home() {
               />
               <RightArrow
                 className={styles.customOptionSubmit}
-                onClick={() => console.log(customOption)}
+                disabled={!customOption || customOption.trim() === ''}
+                onClick={submitCustomOption}
               />
             </div>
           </div>
@@ -147,6 +175,7 @@ export default function Home() {
               </button>
             ))}
           </div>
+          {isLoading && <div className={styles.loading}></div>}
         </div>
       )}
 

@@ -57,7 +57,7 @@ const generateFirstRoundMessage = (
   let content = `I'm having someone play a choose your own adventure game. 
   You will be the one providing me with the scenarios. 
   The desc of the scenario should not have more than ${MAX_WORDS_PER_DESC} words 
-  and you shall also give 3 options. Your response has to be in this JSON format:
+  and you shall also give 3 options but leave it open ended (giving the 3 choices, but the user should still be able to do whatever they want). Your response has to be in this JSON format:
   {
     "desc": "<DESCRIPTION OF THE SCENARIO>",
     "options": [{"id": "opt1", "label": "<option 1>"}, ...]
@@ -75,21 +75,43 @@ const generateFirstRoundMessage = (
 
 const generateNextRoundMessage = (
   optionChosen: string,
+  customOption: string,
   roundNumber: number,
 ): ChatCompletionRequestMessage => {
-  const content = `The user chose ${optionChosen}. 
-  Give me the next round (which is the number ${roundNumber} out of ${MAX_NUMBER_OF_SCENARIOS}). 
-  Follow same response structure as last time.`;
+  let content = '';
+  if (customOption && customOption.trim()) {
+    content = `The user chose their own choice, deciding this: "${customOption}". If this choice doesn't 
+    make any grammatical sense (just gibberish), just pick one of the previous options you created at random. Otherwise, even if it doesn't make
+    much logical sense, find a way to create the next scenario based on this choice, as wild as it may be.`
+  } else if (optionChosen) {
+    content = `The user chose ${optionChosen}.`
+  } else {
+    content = `There was a problem and the user didn't decide on anything. Please just pick one of the previous options you created at random.`
+  }
+  
+  content += ` Give me the next round (which is the number ${roundNumber} out of ${MAX_NUMBER_OF_SCENARIOS}). 
+  Follow same response structure as last time and leave it open ended (giving the 3 choices, but the user should still be able to do whatever they want).`;
 
   return { role: 'system', content };
 };
 
 const generateLastRoundMessage = (
   optionChosen: string,
+  customOption: string,
 ): ChatCompletionRequestMessage => {
-  const content = `The user chose ${optionChosen}. 
-  Give me a conclusion for this story. Follow same response structure 
-  as last time but the "options" part of the response should be just an empty array.`;
+  let content = '';
+  if (customOption && customOption.trim()) {
+    content = `The user chose their own choice, deciding this: "${customOption}". If this choice doesn't 
+    make any grammatical sense (just gibberish), just pick one of the previous options you created at random. Otherwise, even if it doesn't make
+    much logical sense, find a way to create the next scenario based on this choice, as wild as it may be.`
+  } else if (optionChosen) {
+    content = `The user chose ${optionChosen}.`
+  } else {
+    content = `There was a problem and the user didn't decide on anything. Please just pick one of the previous options you created at random.`
+  }
+  
+  content += ` Give me a conclusion for this story. Follow same response structure 
+  as last time but the "options" part of the response has to be just an empty array.`;
 
   return { role: 'system', content };
 };
@@ -121,21 +143,22 @@ const handler: NextApiHandler = async (
       previousMessages.filter((msg) => msg.role === 'assistant').length + 1;
 
     // first prompt
-    if (previousMessages.length === 0 || req.body.optionChosen === undefined) {
+    if (previousMessages.length === 0 || (req.body.optionChosen === undefined && req.body.customOption === undefined)) {
       newSystemMessage = generateFirstRoundMessage(theme, name, language);
     }
 
     // mid game rounds
-    else if (roundNumber < MAX_NUMBER_OF_SCENARIOS && req.body.optionChosen) {
+    else if (roundNumber < MAX_NUMBER_OF_SCENARIOS && (req.body.optionChosen || req.body.customOption)) {
       newSystemMessage = generateNextRoundMessage(
         req.body.optionChosen,
+        req.body.customOption,
         roundNumber,
       );
     }
 
     // last round
     else {
-      newSystemMessage = generateLastRoundMessage(req.body.optionChosen);
+      newSystemMessage = generateLastRoundMessage(req.body.optionChosen, req.body.customOption);
       isLastRound = true;
     }
 
