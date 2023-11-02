@@ -5,10 +5,7 @@
   align-items: center;
   padding: 6rem;
   min-height: 100vh;
-}
-
-.scenarioDescription {
-  margin-bottom: 1em;
+  gap: 10px;
 }
 
 .optionsContainer {
@@ -55,7 +52,7 @@
   padding: 0.7em;
   font-size: 1.5em;
   text-align: center;
-  background-color: rgb(0, 0, 0);
+  background-color: rgb(45, 45, 45);
   transition: all 1s ease;
 }
 
@@ -91,16 +88,23 @@
   border: none;
   border-bottom: 2px solid var(--default-border-color);
   padding: 0.7em;
+  padding-right: 50px;
   font-size: 1.2em;
   text-align: center;
-  background-color: rgb(0, 0, 0);
+  background-color: rgb(45, 45, 45);
   transition: all 1s ease;
   outline: none;
   flex-grow: 10;
 }
 
+.customOptionInput:focus-visible {
+  outline: none;
+  background-color: rgb(30, 30, 30);
+}
+
 .customOptionSubmit {
   height: 30px;
+  margin-left: -40px;
   fill: var(--default-border-color);
   transition: fill 0.3s ease;
 }
@@ -113,12 +117,18 @@
   fill: #7d7d7d;
 }
 
+.answerContainer {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
 .loading {
-  border: 16px solid #f3f3f3;
+  border: 16px solid black;
   border-top: 16px solid var(--default-border-color);
   border-radius: 50%;
-  width: 30px;
-  height: 30px;
+  width: 50px;
+  height: 50px;
   animation: spin 2s linear infinite;
 }
 

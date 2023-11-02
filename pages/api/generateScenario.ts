@@ -17,7 +17,7 @@ import {
   saveUserMessages,
 } from './utils/storage';
 
-const MAX_NUMBER_OF_SCENARIOS = 10;
+const MAX_NUMBER_OF_SCENARIOS = 6;
 const MAX_WORDS_PER_DESC = 100;
 
 const KEY_ERROR = {
@@ -77,6 +77,7 @@ const generateNextRoundMessage = (
   optionChosen: string,
   customOption: string,
   roundNumber: number,
+  language: string,
 ): ChatCompletionRequestMessage => {
   let content = '';
   if (customOption && customOption.trim()) {
@@ -90,7 +91,12 @@ const generateNextRoundMessage = (
   }
   
   content += ` Give me the next round (which is the number ${roundNumber} out of ${MAX_NUMBER_OF_SCENARIOS}). 
-  Follow same response structure as last time and leave it open ended (giving the 3 choices, but the user should still be able to do whatever they want).`;
+  Follow same response structure as last time and leave it open ended (giving the 3 choices, but the user 
+    should still be able to do whatever they want).`;
+
+  if (language !== "English") {
+    content += `. Please generate every response in ${language}`
+  }
 
   return { role: 'system', content };
 };
@@ -98,6 +104,7 @@ const generateNextRoundMessage = (
 const generateLastRoundMessage = (
   optionChosen: string,
   customOption: string,
+  language: string,
 ): ChatCompletionRequestMessage => {
   let content = '';
   if (customOption && customOption.trim()) {
@@ -113,8 +120,55 @@ const generateLastRoundMessage = (
   content += ` Give me a conclusion for this story. Follow same response structure 
   as last time but the "options" part of the response has to be just an empty array.`;
 
+  if (language !== "English") {
+    content += `. Please generate every response in ${language}`
+  }
+
   return { role: 'system', content };
 };
+
+const generateImageSrc = async (messages: ChatCompletionRequestMessage[]): Promise<{imgSrc: string; imgPrompt: string, imgAlt: string} | null> => {
+  const messagesStr = messages.reduce((prev, msg) => { return `${prev + msg.content}` }, '');
+  const content = `From the story contained in the messages, please pick a cool moment that would be a nice image
+   and generate a prompt to generate an image using DALL-E 2 (less than 150 characters). The prompt should be "Give me a realistic image of..." and then replace
+   the ... with the brief description of the moment you picked, giving enough details for a cool rich image.
+    The story was created via chatgpt, so please use the following string which contains the story, but ignore any system messages that talks about 
+    api format and things like that: **${messagesStr}**
+    Please return the prompt text and an alt for the image JSON format like so: {imgPrompt: <prompt value>, imgAlt: <alt for the image>}.`
+
+  try {
+    const response = await openai.createChatCompletion({
+      model: 'gpt-3.5-turbo',
+      messages: [{role: 'system', content}],
+      temperature: 0.9,
+    });
+
+    const promptResponse = (response.data.choices[0]
+    .message as ChatCompletionResponseMessage).content ?? null;
+    console.log('promptResponse')
+    console.log(promptResponse)
+
+    if (!promptResponse) {
+      return null;
+    }
+
+
+    const { imgPrompt, imgAlt } = JSON.parse(promptResponse)
+
+    console.log(imgPrompt, imgAlt)
+
+    if (!imgPrompt || !imgAlt) {
+      return null;
+    }
+
+    const imageRes = await openai.createImage({ prompt: imgPrompt, n: 1, size: "512x512" });
+    return {imgSrc: imageRes.data.data[0].url ?? '', imgPrompt, imgAlt};
+
+  } catch (error: any) {
+    handleAxiosError(error);
+    return null;
+  }
+}
 
 const handler: NextApiHandler = async (
   req: NextApiRequest,
@@ -132,6 +186,9 @@ const handler: NextApiHandler = async (
     }
     let response;
     let newSystemMessage: ChatCompletionRequestMessage;
+    let imgSrc: string = '';
+    let imgPrompt: string = '';
+    let imgAlt: string = '';
     let isLastRound = false;
 
     handleNewUser(req);
@@ -153,16 +210,25 @@ const handler: NextApiHandler = async (
         req.body.optionChosen,
         req.body.customOption,
         roundNumber,
+        req.body.language
       );
     }
 
     // last round
     else {
-      newSystemMessage = generateLastRoundMessage(req.body.optionChosen, req.body.customOption);
+      newSystemMessage = generateLastRoundMessage(req.body.optionChosen, req.body.customOption, req.body.language);
       isLastRound = true;
     }
 
     const messages = [...previousMessages, newSystemMessage];
+
+    if (isLastRound) {
+      const imgRes = await generateImageSrc(messages)
+
+      if (imgRes !== null) {
+        ({ imgSrc, imgPrompt, imgAlt } = imgRes);
+      }
+    }
 
     try {
       response = await openai.createChatCompletion({
@@ -187,6 +253,11 @@ const handler: NextApiHandler = async (
     }
 
     const scenario: Scenario = JSON.parse(scenarioJSON);
+    if (imgSrc && imgSrc !== '') {
+      scenario.imgSrc = imgSrc;
+      scenario.imgAlt = imgAlt;
+      scenario.imgPrompt = imgPrompt;
+    }
 
     saveUserMessages(userId, [newSystemMessage, newAssistantMessage]);
     res.status(200).send(scenario);

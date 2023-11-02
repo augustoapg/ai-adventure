@@ -4,6 +4,9 @@ export interface Scenario {
   desc: string;
   options: ScenarioOption[];
   optionChosen?: string;
+  imgSrc?: string;
+  imgAlt?: string;
+  imgPrompt?: string;
 }
 
 export interface ScenarioOption {

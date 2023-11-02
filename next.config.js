@@ -1,4 +1,16 @@
 /** @type {import('next').NextConfig} */
+const imgConfig = {
+  images: {
+    remotePatterns: [
+      {
+        protocol: 'https',
+        hostname: 'oaidalleapiprodscus.blob.core.windows.net',
+        port: '',
+      },
+    ],
+  },
+};
+
 const nextConfig = {
   webpack(config) {
     config.module.rules.push({
@@ -10,4 +22,8 @@ const nextConfig = {
     return config;
   },
 };
-module.exports = nextConfig;
+
+module.exports = {
+  ...nextConfig,
+  images: imgConfig.images, // Merge the image configuration
+};

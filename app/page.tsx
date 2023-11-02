@@ -2,7 +2,7 @@
 import { Scenario } from '@/interfaces';
 import { languages, themes } from '@/lib/constants';
 import clsx from 'clsx';
-import { useState } from 'react';
+import { KeyboardEventHandler, useState } from 'react';
 import styles from './page.module.css';
 import Image from 'next/image';
 import RightArrow from '../public/right-arrow.svg';
@@ -17,10 +17,28 @@ export default function Home() {
   const [customOption, setCustomOption] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
+  const isGameOver =
+    inGame &&
+    scenario?.desc &&
+    scenario?.options?.length === 0 &&
+    scenario?.imgSrc;
+
+  const isCustomOptionDisabled =
+    isLoading || !customOption || customOption.trim() === '';
+
+  const handleEnterKeyPressInOptionInput: KeyboardEventHandler<
+    HTMLInputElement
+  > = (event) => {
+    if (event.key === 'Enter' && !isCustomOptionDisabled) {
+      submitCustomOption();
+    }
+  };
+
   const resetGame = () => {
     setScenario({ desc: '', options: [] });
     setOptionChosen('');
     setIsLoading(false);
+    setInGame(false);
   };
 
   const generateScenario = async (optionChosen?: string) => {
@@ -45,7 +63,6 @@ export default function Home() {
     setScenario(res);
     setIsLoading(false);
     setOptionChosen('');
-    console.log(theme, language, name);
   };
 
   const getOptionBtnClass = (optId: string) => {
@@ -57,7 +74,7 @@ export default function Home() {
   };
 
   const submitCustomOption = async () => {
-    if (customOption && customOption.trim() !== '') {
+    if (!isCustomOptionDisabled) {
       setIsLoading(true);
       const body = {
         name: name || 'Liam',
@@ -79,7 +96,6 @@ export default function Home() {
       setIsLoading(false);
       setOptionChosen('');
       setCustomOption('');
-      console.log(theme, language, name);
     }
   };
 
@@ -146,40 +162,57 @@ export default function Home() {
       {inGame && scenario.desc && (
         <div className={styles.gameContainer}>
           <p className={styles.scenarioDescription}>{scenario.desc}</p>
-          <div className={styles.customOptionContainer}>
-            <p>What do you do?</p>
-            <div className={styles.customOptionInputContainer}>
-              <input
-                className={styles.customOptionInput}
-                type="text"
-                value={customOption}
-                onChange={(e) => setCustomOption(e.target.value)}
-              />
-              <RightArrow
-                className={styles.customOptionSubmit}
-                disabled={!customOption || customOption.trim() === ''}
-                onClick={submitCustomOption}
-              />
+          {!isGameOver && (
+            <div className={styles.answerContainer}>
+              <div className={styles.customOptionContainer}>
+                <p>What do you do?</p>
+                <div className={styles.customOptionInputContainer}>
+                  <input
+                    className={styles.customOptionInput}
+                    type="text"
+                    value={customOption}
+                    onChange={(e) => setCustomOption(e.target.value)}
+                    onKeyUp={handleEnterKeyPressInOptionInput}
+                  />
+                  <RightArrow
+                    className={styles.customOptionSubmit}
+                    disabled={isCustomOptionDisabled}
+                    onClick={submitCustomOption}
+                  />
+                </div>
+              </div>
+              <p>Or pick one of these options:</p>
+              <div className={styles.optionsContainer}>
+                {scenario?.options &&
+                  scenario.options.map((option) => (
+                    <button
+                      key={option.id}
+                      className={getOptionBtnClass(option.id)}
+                      onClick={() => generateScenario(option.id)}
+                      disabled={isLoading}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+              </div>
             </div>
-          </div>
-          <p>Or pick one of these options:</p>
-          <div className={styles.optionsContainer}>
-            {scenario.options.map((option) => (
-              <button
-                key={option.id}
-                className={getOptionBtnClass(option.id)}
-                onClick={() => generateScenario(option.id)}
-                disabled={isLoading}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          )}
+
           {isLoading && <div className={styles.loading}></div>}
         </div>
       )}
 
-      {inGame && scenario.desc && scenario.options.length === 0 && (
+      {isGameOver && scenario.imgSrc && (
+        <Image
+          src={scenario.imgSrc}
+          alt={scenario.imgAlt || 'summary of story image'}
+          title={scenario.imgPrompt}
+          width={512}
+          height={512}
+        />
+      )}
+
+      {isGameOver && (
         <button className={styles.playAgainBtn} onClick={resetGame}>
           Play again?
         </button>
