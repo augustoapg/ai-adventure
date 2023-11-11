@@ -17,7 +17,7 @@ import {
   saveUserMessages,
 } from './utils/storage';
 
-const MAX_NUMBER_OF_SCENARIOS = 3;
+const MAX_NUMBER_OF_SCENARIOS = 7;
 const MAX_WORDS_PER_DESC = 100;
 
 const KEY_ERROR = {
