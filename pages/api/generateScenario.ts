@@ -17,7 +17,7 @@ import {
   saveUserMessages,
 } from './utils/storage';
 
-const MAX_NUMBER_OF_SCENARIOS = 6;
+const MAX_NUMBER_OF_SCENARIOS = 3;
 const MAX_WORDS_PER_DESC = 100;
 
 const KEY_ERROR = {
@@ -222,13 +222,14 @@ const handler: NextApiHandler = async (
 
     const messages = [...previousMessages, newSystemMessage];
 
-    if (isLastRound) {
-      const imgRes = await generateImageSrc(messages)
+    // TODO: temporarily disabling image creation because netlify will timeout after 10s. Maybe separate this into a different call
+    // if (isLastRound) {
+    //   const imgRes = await generateImageSrc(messages)
 
-      if (imgRes !== null) {
-        ({ imgSrc, imgPrompt, imgAlt } = imgRes);
-      }
-    }
+    //   if (imgRes !== null) {
+    //     ({ imgSrc, imgPrompt, imgAlt } = imgRes);
+    //   }
+    // }
 
     try {
       response = await openai.createChatCompletion({

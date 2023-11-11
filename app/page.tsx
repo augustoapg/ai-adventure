@@ -17,11 +17,8 @@ export default function Home() {
   const [customOption, setCustomOption] = useState('');
   const [isLoading, setIsLoading] = useState(false);
 
-  const isGameOver =
-    inGame &&
-    scenario?.desc &&
-    scenario?.options?.length === 0 &&
-    scenario?.imgSrc;
+  const isGameOver: boolean =
+    inGame && !!scenario?.desc && scenario?.options?.length === 0;
 
   const isCustomOptionDisabled =
     isLoading || !customOption || customOption.trim() === '';
