@@ -178,8 +178,8 @@ export default function Home() {
                   />
                 </div>
               </div>
-              <p>Or pick one of these options:</p>
               <div className={styles.optionsContainer}>
+                <p>Or pick one of these options:</p>
                 {scenario?.options &&
                   scenario.options.map((option) => (
                     <button
